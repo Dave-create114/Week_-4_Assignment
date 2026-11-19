@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Where the policy documents live.
-DATA_FILE_PATH = PROJECT_ROOT / "data" / "policies.txt"
+DATA_FILE_PATH = PROJECT_ROOT / "data" / "PublicServiceRules.pdf"
 
 # Model settings.
 GROQ_MODEL = "openai/gpt-oss-120b"
