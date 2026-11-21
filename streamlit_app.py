@@ -23,7 +23,7 @@ streamlit run streamlit_app.py
 
 import streamlit as st
 
-from rag.config import DATA_FILE_PATH, ConfigError
+from rag.config import DATA_FILE_PATHS, ConfigError
 from rag.pipeline import (
     Pipeline,
     ask_assistant,
@@ -124,8 +124,8 @@ def document_file_hash() -> str:
     """
 
     return (
-        f"{DATA_FILE_PATH.stat().st_mtime_ns}-"
-        f"{DATA_FILE_PATH.stat().st_size}"
+        f"{DATA_FILE_PATHS.stat().st_mtime_ns}-"
+        f"{DATA_FILE_PATHS.stat().st_size}"
     )
 
 
@@ -192,9 +192,9 @@ with st.sidebar:
 
     st.subheader("Knowledge Base")
 
-    if DATA_FILE_PATH.exists():
+    if DATA_FILE_PATHS.exists():
         st.success("Knowledge document detected")
-        st.caption(f"Source: {DATA_FILE_PATH.name}")
+        st.caption(f"Source: {DATA_FILE_PATHS.name}")
     else:
         st.error("Knowledge document not found")
 
@@ -219,9 +219,9 @@ try:
 
     with st.spinner("Initializing Public Service AI Assistant..."):
 
-        if not DATA_FILE_PATH.exists():
+        if not DATA_FILE_PATHS.exists():
             st.error(
-                f"Knowledge document not found: {DATA_FILE_PATH}",
+                f"Knowledge document not found: {DATA_FILE_PATHS}",
                 icon=":material/error:",
             )
             st.stop()
