@@ -5,22 +5,13 @@ An interactive AI assistant that helps Lagos State
 civil servants and prospective public officers understand
 the Lagos State Public Service Rules.
 
-The assistant retrieves information from official
-service documents and provides grounded answers.
-
-Core areas:
-- Recruitment and Appointment
-- Confirmation of Appointment
-- Promotion and Advancement
-- Leave and Absence
-- Discipline and Misconduct
-- Retirement and Pension
-- General Public Service Regulations
-
 Run with:
 streamlit run streamlit_app.py
 """
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Iterable
 import streamlit as st
 
 from rag.config import DATA_FILE_PATHS
@@ -31,102 +22,136 @@ from rag.pipeline import (
     stream_answer,
 )
 
+try:
+    from rag.config import ConfigError  # type: ignore[attr-defined]
+except ImportError:
+    class ConfigError(Exception):
+        """Raised when required configuration or knowledge files are missing."""
+
 
 # ---------------------------------------------------------------------------
-# PAGE CONFIGURATION
+# PAGE CONFIGURATION & CHATGPT-STYLE THEME POLISH
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
     page_title="Lagos State Public Servant AI Assistant",
     page_icon="📘",
-    layout="centered",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown(
+    """
+    <style>
+        /* Center main conversation like ChatGPT */
+        .block-container {
+            max-width: 820px;
+            padding-top: 1.25rem;
+            padding-bottom: 6rem;
+        }
+
+        /* Subtle user message bubble styling */
+        [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+            background-color: rgba(128, 128, 128, 0.08);
+            border-radius: 16px;
+            padding: 0.65rem 1rem;
+            margin-left: auto;
+            max-width: 85%;
+        }
+
+        /* Cleaner assistant message spacing */
+        [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+            background-color: transparent;
+            padding: 0.5rem 0.25rem;
+        }
+
+        /* Tighten top header spacing */
+        div[data-testid="stHorizontalBlock"]:first-of-type {
+            border-bottom: 1px solid rgba(128, 128, 128, 0.16);
+            padding-bottom: 0.65rem;
+            margin-bottom: 1.25rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
 # ---------------------------------------------------------------------------
-# SESSION STATE
+# SESSION STATE & CONSTANTS
 # ---------------------------------------------------------------------------
 
 st.session_state.setdefault("messages", [])
 
 ASSISTANT_AVATAR = "📘"
 
-
-# ---------------------------------------------------------------------------
-# SUGGESTED QUESTIONS
-# ---------------------------------------------------------------------------
-
 SUGGESTIONS = {
     ":blue[:material/person_add:] Appointment": (
         "What are the requirements for appointment into the "
         "Lagos State Public Service?"
     ),
-
     ":green[:material/verified:] Confirmation": (
         "What are the conditions and procedures for confirmation "
         "of appointment?"
     ),
-
     ":orange[:material/trending_up:] Promotion": (
         "What are the requirements and procedures for promotion "
         "in the Lagos State Public Service?"
     ),
-
     ":violet[:material/event_available:] Leave": (
         "What types of leave are available to public officers "
         "and what are the conditions for taking them?"
     ),
-
     ":red[:material/gavel:] Discipline": (
         "What constitutes misconduct and what disciplinary "
         "procedures apply to public officers?"
     ),
-
     ":blue[:material/work_history:] Retirement": (
         "What are the rules governing retirement from the "
         "Lagos State Public Service?"
     ),
 }
 
-
-# ---------------------------------------------------------------------------
-# WELCOME MESSAGE
-# ---------------------------------------------------------------------------
-
-WELCOME = (
-    "Welcome to the **Lagos State Public Service AI Assistant**.\n\n"
-    "Ask me questions about recruitment, appointment, confirmation, "
-    "promotion, leave, discipline, retirement and other public service "
-    "regulations.\n\n"
-    "My answers are generated using the official documents available "
-    "in my knowledge base. Always verify important administrative "
-    "decisions against applicable official rules and circulars."
+WELCOME_TITLE = "How can I help with Lagos State Public Service Rules?"
+WELCOME_SUBTITLE = (
+    "Ask about recruitment, appointment, confirmation, promotion, leave, "
+    "discipline, or retirement. Answers are grounded in official service "
+    "documents—always verify formal administrative actions against current "
+    "rules and circulars."
 )
 
 
 # ---------------------------------------------------------------------------
-# NEW CHAT FUNCTION
+# PATH & FINGERPRINT HELPERS
 # ---------------------------------------------------------------------------
+
+def iter_data_paths(raw_paths: Path | str | Iterable[Path | str]) -> list[Path]:
+    """Normalize DATA_FILE_PATHS (single path or iterable) into a list of Paths."""
+    if isinstance(raw_paths, (Path, str)):
+        return [Path(raw_paths)]
+    return [Path(p) for p in raw_paths]
+
+
+def get_missing_files(paths: list[Path]) -> list[Path]:
+    """Return paths that do not exist on disk."""
+    return [p for p in paths if not p.exists()]
+
+
+def document_file_hash(paths: list[Path]) -> str:
+    """
+    Generate a combined fingerprint across all knowledge files using
+    modification time and file size so cache invalidates if any file changes.
+    """
+    parts: list[str] = []
+    for path in paths:
+        stat = path.stat()
+        parts.append(f"{path.name}:{stat.st_mtime_ns}-{stat.st_size}")
+    return "|".join(parts)
+
 
 def new_chat() -> None:
     """Clear the current conversation."""
     st.session_state.messages = []
-
-
-# ---------------------------------------------------------------------------
-# DOCUMENT FINGERPRINT
-# ---------------------------------------------------------------------------
-
-def document_file_hash() -> str:
-    """
-    Generate a document fingerprint using its
-    modification time and file size.
-    """
-
-    return (
-        f"{DATA_FILE_PATHS.stat().st_mtime_ns}-"
-        f"{DATA_FILE_PATHS.stat().st_size}"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -135,319 +160,190 @@ def document_file_hash() -> str:
 
 @st.cache_resource(max_entries=2)
 def get_pipeline(file_hash: str) -> Pipeline:
-    """
-    Build and cache the RAG pipeline.
-
-    The pipeline is reused instead of rebuilding
-    the document embeddings on every interaction.
-    """
-
+    """Build and cache the RAG pipeline."""
     return build_pipeline()
 
 
-# ---------------------------------------------------------------------------
-# APPLICATION HEADER
-# ---------------------------------------------------------------------------
-
-head_left, head_right = st.columns(
-    [0.85, 0.15],
-    vertical_alignment="center",
-)
-
-head_left.markdown(
-    "## :material/account_balance: Lagos Public Service AI"
-)
-
-head_right.button(
-    "New chat",
-    on_click=new_chat,
-)
+data_paths = iter_data_paths(DATA_FILE_PATHS)
+missing_files = get_missing_files(data_paths)
 
 
 # ---------------------------------------------------------------------------
-# SIDEBAR
+# SIDEBAR (CHATGPT-STYLE NAVIGATION & KNOWLEDGE STATUS)
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
+    st.markdown("### 📘 Public Servant AI")
+    st.caption("Lagos State Government • PSR Assistant")
 
-    st.title("📘 Public Servant AI")
-
-    st.caption("Lagos State Government")
-
-    st.divider()
-
-    st.subheader("Knowledge Areas")
-
-    st.markdown("""
-    - Recruitment and Appointment
-    - Confirmation of Appointment
-    - Promotion and Advancement
-    - Leave and Absence
-    - Discipline and Misconduct
-    - Retirement and Pension
-    - Public Service Regulations
-    """)
-
-    st.divider()
-
-    st.subheader("Knowledge Base")
-    #checking missing file
-    missing_files = [str(p) for p in DATA_FILE_PATHS if not Path(p).exists()]
-
-if not missing_files:
-    st.success("Knowledge documents loaded successfully")
-    st.caption(f"Source: {DATA_FILE_PATHS}")
-else:
-    st.error("Some knowledge files are missing:")
-    for file in missing_files:
-        st.write(f"- {file}")
-
-
-    st.divider()
-
-    st.caption(
-        "Designed to support access to Lagos State "
-        "Public Service information."
+    st.button(
+        ":material/add: New chat",
+        on_click=new_chat,
+        use_container_width=True,
     )
 
-    st.caption(
-        "AI-generated responses should be verified "
-        "against applicable official documents."
+    st.divider()
+
+    st.markdown("**Core Rule Areas**")
+    st.markdown(
+        """
+- Recruitment & Appointment
+- Confirmation of Appointment
+- Promotion & Advancement
+- Leave & Absence
+- Discipline & Misconduct
+- Retirement & Pension
+- General Service Regulations
+        """
     )
+
+    st.divider()
+
+    st.markdown("**Knowledge Base**")
+    if not missing_files and data_paths:
+        st.success(f"{len(data_paths)} document(s) ready")
+        for p in data_paths:
+            st.caption(f"• `{p.name}`")
+    else:
+        st.error("Missing knowledge file(s)")
+        for p in missing_files:
+            st.caption(f"• `{p}`")
+
+    st.divider()
+    st.caption(
+        "AI-generated answers are for guidance; verify official decisions "
+        "against applicable Lagos State Public Service Rules and circulars."
+    )
+
+
+# ---------------------------------------------------------------------------
+# TOP BAR
+# ---------------------------------------------------------------------------
+
+head_left, head_right = st.columns([0.82, 0.18], vertical_alignment="center")
+with head_left:
+    st.markdown("#### :material/account_balance: Lagos Public Service AI")
+with head_right:
+    st.button("New chat", on_click=new_chat, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
 # INITIALIZE PIPELINE
 # ---------------------------------------------------------------------------
 
+pipeline: Pipeline | None = None
+
 try:
+    if not data_paths or missing_files:
+        formatted = ", ".join(str(p) for p in (missing_files or data_paths))
+        raise ConfigError(f"Knowledge document(s) not found: {formatted}")
 
     with st.spinner("Initializing Public Service AI Assistant..."):
-
-        if not DATA_FILE_PATHS.exists():
-            st.error(
-                f"Knowledge document not found: {DATA_FILE_PATHS}",
-                icon=":material/error:",
-            )
-            st.stop()
-
-        pipeline = get_pipeline(document_file_hash())
+        pipeline = get_pipeline(document_file_hash(data_paths))
 
 except ConfigError as e:
-
-    st.error(
-        str(e),
-        icon=":material/key_off:",
+    st.error(str(e), icon=":material/key_off:")
+    st.info(
+        "Check `DATA_FILE_PATHS` in `rag/config.py` and confirm your data "
+        "files are committed to your repository."
     )
-
     st.stop()
 
 except Exception as e:
-
-    st.error(
-        f"{e.__class__.__name__}: {e}",
-        icon=":material/error:",
-    )
-
+    st.error(f"{e.__class__.__name__}: {e}", icon=":material/error:")
     st.stop()
 
 
 # ---------------------------------------------------------------------------
-# CHAT MESSAGE DISPLAY
+# CHAT RENDERING & RESPONSE GENERATION
 # ---------------------------------------------------------------------------
 
 def render_message(message: dict) -> None:
     """Display an existing conversation message."""
-
-    avatar = (
-        ASSISTANT_AVATAR
-        if message["role"] == "assistant"
-        else None
-    )
-
-    with st.chat_message(
-        message["role"],
-        avatar=avatar,
-    ):
-
+    avatar = ASSISTANT_AVATAR if message["role"] == "assistant" else None
+    with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
 
-# ---------------------------------------------------------------------------
-# GENERATE AI RESPONSE
-# ---------------------------------------------------------------------------
-
 def generate_reply(
-    pipeline: Pipeline,
+    active_pipeline: Pipeline,
     question: str,
     history: list[dict],
 ) -> str:
-
-    """
-    Generate an answer using the RAG pipeline.
-
-    Stream the response when supported.
-    Fall back to a normal response if streaming
-    does not return any content.
-    """
-
+    """Stream an answer from the RAG pipeline with fallback to non-streaming."""
     box = st.empty()
+    parts: list[str] = []
 
-    parts = []
-
-    with st.status(
-        ":shimmer[Searching Public Service documents...]",
-        expanded=False,
-    ) as status:
-
-        for piece in stream_answer(
-            pipeline,
-            question,
-            history,
-        ):
-
+    with st.status(":shimmer[Searching Public Service documents...]", expanded=False) as status:
+        for piece in stream_answer(active_pipeline, question, history):
             parts.append(piece)
-
             box.markdown("".join(parts))
 
-        answer = "".join(parts)
+        status.update(label="Search complete", state="complete")
 
-        status.update(
-            label="Document search completed",
-            state="complete",
-        )
+    answer = "".join(parts).strip()
 
     if not answer:
-
-        answer = ask_assistant(
-            pipeline,
-            question,
-            history,
-        )
-
+        answer = ask_assistant(active_pipeline, question, history)
         box.markdown(answer)
 
     return answer
 
 
 # ---------------------------------------------------------------------------
-# WELCOME SCREEN AND SUGGESTIONS
+# EMPTY STATE (WELCOME + STARTER PROMPTS) OR HISTORY
 # ---------------------------------------------------------------------------
 
+prompt: str | None = None
+
 if not st.session_state.messages:
+    st.markdown(f"### {WELCOME_TITLE}")
+    st.caption(WELCOME_SUBTITLE)
 
-    st.markdown("### Welcome to Lagos State Public Service AI")
-
-    st.markdown(WELCOME)
-
-    st.markdown("### What would you like to know?")
-
-    suggestions = st.container()
-
-    selected = suggestions.pills(
+    selected = st.pills(
         "Suggested questions",
         list(SUGGESTIONS.keys()),
         label_visibility="collapsed",
     )
-
     if selected:
-
         prompt = SUGGESTIONS[selected]
-
-    else:
-
-        prompt = None
-
 else:
-
-    prompt = None
+    for message in st.session_state.messages:
+        render_message(message)
 
 
 # ---------------------------------------------------------------------------
-# CHAT INPUT
+# CHAT INPUT (PINNED AT BOTTOM)
 # ---------------------------------------------------------------------------
 
-user_prompt = st.chat_input(
-    "Ask a question about Lagos State Public Service Rules..."
-)
-
-
+user_prompt = st.chat_input("Message Lagos Public Service AI...")
 if user_prompt:
-
     prompt = user_prompt
 
 
 # ---------------------------------------------------------------------------
-# DISPLAY PREVIOUS CONVERSATION
+# HANDLE NEW TURN
 # ---------------------------------------------------------------------------
 
-for message in st.session_state.messages:
-
-    render_message(message)
-
-
-# ---------------------------------------------------------------------------
-# PROCESS USER QUESTION
-# ---------------------------------------------------------------------------
-
-if prompt:
-
-    # Save the user's question
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": prompt,
-        }
-    )
-
+if prompt and pipeline is not None:
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-
         st.markdown(prompt)
 
-    # Build conversation history
     history = [
-        {
-            "role": message["role"],
-            "content": message["content"],
-        }
-
-        for message in st.session_state.messages[:-1]
+        {"role": m["role"], "content": m["content"]}
+        for m in st.session_state.messages[:-1]
     ]
 
-    # Generate assistant response
-    with st.chat_message(
-        "assistant",
-        avatar=ASSISTANT_AVATAR,
-    ):
-
+    with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         try:
-
-            with st.spinner(
-                "Reviewing relevant Public Service Rules..."
-            ):
-
-                answer = generate_reply(
-                    pipeline,
-                    prompt,
-                    history,
-                )
-
+            answer = generate_reply(pipeline, prompt, history)
         except Exception as e:
-
             st.error(
-                f"The assistant encountered an error: "
-                f"{e.__class__.__name__}: {e}",
+                f"The assistant encountered an error: {e.__class__.__name__}: {e}",
                 icon=":material/error:",
             )
-
             answer = None
 
-    # Save successful response
     if answer:
-
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": answer,
-            }
-        )
+        st.session_state.messages.append({"role": "assistant", "content": answer})
