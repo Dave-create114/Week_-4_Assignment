@@ -6,7 +6,7 @@ Loads the raw public service rule documents from disk and splits them into
 
 from pathlib import Path
 
-from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -16,13 +16,13 @@ from rag.config import CHUNK_OVERLAP, CHUNK_SIZE, DATA_FILE_PATH
 def load_documents(
     path: Path = DATA_FILE_PATH,
 ) -> list[Document]:
-    """STAGE 1: read the policy text file into LangChain documents."""
+    """STAGE 1: read the policy PDF file into LangChain documents."""
     if not path.exists():
         raise FileNotFoundError(
-            f"Policy file not found at {path}. Expected a text file at "
-            "data/policies.txt inside the project folder."
+            f"Policy file not found at {path}."
+            "Expected PublicServiceRules.pdf inside the data/ folder inside the project folder."
         )
-    loader = TextLoader(str(path), encoding="utf-8")
+    loader = PyPDFLoader(str(path))
     return loader.load()
 
 
