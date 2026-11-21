@@ -20,7 +20,7 @@ Core areas:
 Run with:
 streamlit run streamlit_app.py
 """
-
+from pathlib import Path
 import streamlit as st
 
 from rag.config import DATA_FILE_PATHS
