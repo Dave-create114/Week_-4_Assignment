@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Where the policy documents live.
-DATA_FILE_PATH =[PROJECT_ROOT / "data" / "PublicServiceRules.pdf",
+DATA_FILE_PATHS =[PROJECT_ROOT / "data" / "PublicServiceRules.pdf",
                 PROJECT_ROOT / "data" / "Lagos_State_Exam_Questions_and_Answers.pdf",]
 
 # Model settings.
