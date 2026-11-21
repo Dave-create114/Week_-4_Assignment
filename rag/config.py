@@ -24,11 +24,11 @@ JINA_API_URL = "https://api.jina.ai/v1/embeddings"
 JINA_MODEL = "jina-embeddings-v5-text-small"
 
 # Chunking settings.
-CHUNK_SIZE = 800
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 1200
+CHUNK_OVERLAP = 200
 
 # Retrieval settings: how many chunks the search_policy tool fetches.
-RETRIEVER_K = 3
+RETRIEVER_K = 7
 
 
 class ConfigError(RuntimeError):
