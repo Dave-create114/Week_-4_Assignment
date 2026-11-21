@@ -191,12 +191,17 @@ with st.sidebar:
     st.divider()
 
     st.subheader("Knowledge Base")
+    #checking missing file
+    missing_files = [str(p) for p in DATA_FILE_PATHS if not Path(p).exists()]
 
-    if DATA_FILE_PATHS.exists():
-        st.success("Knowledge document detected")
-        st.caption(f"Source: {DATA_FILE_PATHS.name}")
-    else:
-        st.error("Knowledge document not found")
+if not missing_files:
+    st.success("Knowledge documents loaded successfully")
+    st.caption(f"Source: {DATA_FILE_PATHS}")
+else:
+    st.error("Some knowledge files are missing:")
+    for file in missing_files:
+        st.write(f"- {file}")
+
 
     st.divider()
 
