@@ -37,7 +37,7 @@ from rag.pipeline import (
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Lagos State Public Service AI Assistant",
+    page_title="Lagos State Public Servant AI Assistant",
     page_icon="📘",
     layout="centered",
 )
@@ -170,7 +170,7 @@ head_right.button(
 
 with st.sidebar:
 
-    st.title("📘 Public Service AI")
+    st.title("📘 Public Servant AI")
 
     st.caption("Lagos State Government")
 
