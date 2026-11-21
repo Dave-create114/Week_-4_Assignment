@@ -23,7 +23,7 @@ streamlit run streamlit_app.py
 
 import streamlit as st
 
-from rag.config import DATA_FILE_PATHS, ConfigError
+from rag.config import DATA_FILE_PATHS
 from rag.pipeline import (
     Pipeline,
     ask_assistant,
