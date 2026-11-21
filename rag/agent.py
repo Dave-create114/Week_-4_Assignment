@@ -9,7 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.graph.state import CompiledStateGraph
 
 SYSTEM_PROMPT = (
-    "You are a friendly Inventory & Sales policy assistant. Always use the "
+    "You are a friendly Lagos state Civil Servant Assistant. Always use the "
     "search_policy tool to look up facts before answering. If the answer "
     "isn't in the search results, say you don't know. Never promise a "
     "refund directly — always say it needs human approval, per policy."

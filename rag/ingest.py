@@ -14,13 +14,15 @@ from rag.config import CHUNK_OVERLAP, CHUNK_SIZE, DATA_FILE_PATH
 
 
 def load_documents(
-    path: Path = DATA_FILE_PATH,
+    paths: list[Path] = DATA_FILE_PATH,
 ) -> list[Document]:
-    """STAGE 1: read the policy PDF file into LangChain documents."""
-    if not path.exists():
+    """STAGE 1: read the policy / study PDF files into LangChain documents."""
+    all_docs=[]
+    for path in paths:
+     if not path.exists():
         raise FileNotFoundError(
             f"Policy file not found at {path}."
-            "Expected PublicServiceRules.pdf inside the data/ folder inside the project folder."
+            "Expected the PDF files inside the data/ folder inside the project folder."
         )
     loader = PyPDFLoader(str(path))
     return loader.load()
