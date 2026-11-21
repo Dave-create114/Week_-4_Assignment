@@ -10,11 +10,11 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from rag.config import CHUNK_OVERLAP, CHUNK_SIZE, DATA_FILE_PATH
+from rag.config import CHUNK_OVERLAP, CHUNK_SIZE, DATA_FILE_PATHS
 
 
 def load_documents(
-    paths: list[Path] = DATA_FILE_PATH,
+    paths: list[Path] = DATA_FILE_PATHS,
 ) -> list[Document]:
     """STAGE 1: read the policy / study PDF files into LangChain documents."""
     all_docs=[]
