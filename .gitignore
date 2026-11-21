@@ -1,4 +1,5 @@
 .env
 .venv/
 _pycache_/
-faiss_indx/
+faiss_indx/_pycache_/
+*.pyc
