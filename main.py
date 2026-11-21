@@ -35,14 +35,14 @@ if not JINA_KEY:
     raise SystemExit("Missing JINA_API_KEY in .env")
  
  #Stage 1: Data Ingestion
-DATA_FILE_PATH = os.path.join("data", "PublicServiceRules.pdf")
+DATA_FILE_PATHS = os.path.join("data", "PublicServiceRules.pdf")
 
-if not os.path.exists(DATA_FILE_PATH):
+if not os.path.exists(DATA_FILE_PATHS):
     raise FileNotFoundError(
-        f"PDF file not found: {DATA_FILE_PATH}"
+        f"PDF file not found: {DATA_FILE_PATHS}"
     )
 
-loader = PyPDFLoader(DATA_FILE_PATH)
+loader = PyPDFLoader(DATA_FILE_PATHS)
 
 documents = loader.load()
 
